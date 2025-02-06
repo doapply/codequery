@@ -1,11 +1,11 @@
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Semmle.Extraction.CSharp.Populators;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Semmle.Extraction.CSharp.Populators;
 
 namespace Semmle.Extraction.CSharp.Entities
 {
@@ -54,12 +54,13 @@ namespace Semmle.Extraction.CSharp.Entities
             var block = Block;
             var expr = ExpressionBody;
 
+            Context.PopulateLater(() => ExtractInitializers(trapFile));
+
             if (block is not null || expr is not null)
             {
                 Context.PopulateLater(
                    () =>
                    {
-                       ExtractInitializers(trapFile);
                        if (block is not null)
                            Statements.Block.Create(Context, block, this, 0);
                        else
@@ -100,7 +101,7 @@ namespace Semmle.Extraction.CSharp.Entities
                 }
             }
 
-            if (Symbol.OverriddenMethod is not null)
+            if (Symbol.OverriddenMethod is not null && Symbol.OverriddenMethod.ShouldExtractSymbol())
             {
                 trapFile.overrides(this, Method.Create(Context, Symbol.OverriddenMethod));
             }
@@ -232,7 +233,7 @@ namespace Semmle.Extraction.CSharp.Entities
         /// <param name="cx"></param>
         /// <param name="methodDecl"></param>
         /// <returns></returns>
-        [return: NotNullIfNotNull("methodDecl")]
+        [return: NotNullIfNotNull(nameof(methodDecl))]
         public static Method? Create(Context cx, IMethodSymbol? methodDecl)
         {
             if (methodDecl is null)
@@ -289,7 +290,7 @@ namespace Semmle.Extraction.CSharp.Entities
 
         public Method OriginalDefinition => Create(Context, Symbol.OriginalDefinition);
 
-        public override Location? FullLocation => ReportingLocation;
+        public override Microsoft.CodeAnalysis.Location? FullLocation => ReportingLocation;
 
         public override bool IsSourceDeclaration => Symbol.IsSourceDeclaration();
 
@@ -359,7 +360,6 @@ namespace Semmle.Extraction.CSharp.Entities
             PopulateParameters();
             PopulateMethodBody(trapFile);
             PopulateGenerics(trapFile);
-            PopulateMetadataHandle(trapFile);
             PopulateNullability(trapFile, Symbol.GetAnnotatedReturnType());
         }
 
